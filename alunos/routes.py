@@ -70,16 +70,34 @@ def delete_aluno(id):
     except Exception as e:
         return jsonify({"message": str(e)}), 500
 
-@alunos_blueprint.route('/alunos/buscar', methods=['GET'])
+@alunos_blueprint.route('/alunos/search', methods=['GET'])
 def alunos_por_nome():
     termo_busca = request.args.get('nome')
+    campos = request.args.getlist('campos')  # Receber campos via query
+    filtros = []
 
     try:
         if termo_busca is None:
             raise ValueError("O parâmetro 'nome' é obrigatório")
 
-        alunos_encontrados = buscar_alunos_por_nome(termo_busca)
-        alunos_serializados = alunos_schema.dump(alunos_encontrados)
+        # Construir lista de filtros
+        for campo in request.args:
+            if campo.startswith('filtro_'):
+                campo_sem_prefixo = campo.replace('filtro_', '')
+                operador, valor = request.args.get(campo).split(':')
+                filtros.append((campo_sem_prefixo, operador, valor))
+
+        # Modificado para utilizar o método obter_filtrado da camada de serviço
+        alunos_encontrados = obter_filtrado(campos=campos, filtros=filtros)
+
+        # Serializar os alunos encontrados
+        alunos_serializados = []
+        for aluno in alunos_encontrados:
+            aluno_serializado = {}
+            for campo in campos:
+                aluno_serializado[campo] = aluno[campo]
+            alunos_serializados.append(aluno_serializado)
+
         return jsonify(alunos_serializados)
     except ValueError as e:
         return jsonify({"message": str(e)}), 400
@@ -99,11 +117,3 @@ def partial_update_aluno(id):
     except ValueError as e:
         return jsonify({"message": str(e)}), 400
 
-@alunos_blueprint.route('/alunos/indice', methods=['GET'])
-def get_alunos_resumido():
-    try:
-        alunos_resumido = obter_alunos_resumidos()
-        return jsonify(alunos_resumido)
-   
-    except ValueError as e:
-        return jsonify({"message": str(e)}), 400
