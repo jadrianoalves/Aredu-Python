@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import os
 import shutil
 import hashlib
@@ -6,23 +6,7 @@ from aluno_model import Aluno, db
 from sqlalchemy import func
 
 def adicionar_aluno(data):
-    confirmar = data.pop('confirmar', False)
-    cpf_existente = Aluno.query.filter_by(cpf=data.get('cpf')).first()
-
-    if cpf_existente:
-        raise ValueError("CPF já cadastrado para outro aluno")
-
-    aluno_existente = Aluno.query.filter_by(
-        nome=data.get('nome'),
-        data_nasc=data.get('data_nasc'),
-        mae=data.get('mae')
-    ).first()
-
-    if aluno_existente:
-        if not confirmar:
-            raise ValueError("Já existe um aluno com o mesmo nome, data de nascimento e nome da mãe. "
-                             "Forneça o parâmetro 'confirmar' como True para confirmar a inclusão.")
-
+    
     novo_aluno = Aluno(**data)
     db.session.add(novo_aluno)
     nome_pasta_aluno = criar_pasta_aluno(novo_aluno.id)
@@ -64,32 +48,47 @@ def atualizar_parcialmente_aluno(aluno, data):
     db.session.commit()
     return aluno
 
-def obter_alunos_resumidos():
-    alunos_resumido = (
-        db.session.query(
-            Aluno.id,
-            Aluno.nome,
-            Aluno.mae,
-            Aluno.data_nasc,
-            Aluno.pasta_id,
-            Aluno.cpf
-        )
-        .all()
-    )
+def obter_filtrado(campos=None, filtros=None):
+    if campos is None:
+        campos = ['id', 'nome']
+    
+    # Verificar se os campos fornecidos são válidos
+    campos_validos = ['id', 'nome']
+    campos = [campo for campo in campos if campo in campos_validos]
 
-    alunos_resumido_dict = [
-        {
-            'id': aluno.id,
-            'nome': aluno.nome,
-            'mae': aluno.mae,
-            'data_nasc': aluno.data_nasc.isoformat() if aluno.data_nasc else None,
-            'pasta_id': aluno.pasta_id,
-            'cpf': aluno.cpf
-        }
-        for aluno in alunos_resumido
-    ]
+    # Construir a query dinamicamente com os campos selecionados
+    query = db.session.query(*[getattr(Aluno, campo) for campo in campos])
 
-    return alunos_resumido_dict
+    # Aplicar filtros se forem fornecidos
+    if filtros:
+        for filtro in filtros:
+            campo, operador, valor = filtro
+            if campo in campos_validos:
+                campo_attr = getattr(Aluno, campo)
+                if operador == '==':
+                    query = query.filter(campo_attr == valor)
+                elif operador == '<':
+                    query = query.filter(campo_attr < valor)
+                elif operador == '>':
+                    query = query.filter(campo_attr > valor)
+                elif operador == 'like':
+                    query = query.filter(campo_attr.ilike(f'%{valor}%'))
+                # Adicione outros operadores conforme necessário
+
+    alunos_filtrado = query.all()
+
+    # Criar o dicionário com os dados dos alunos
+    alunos_filtrado_dict = []
+    for aluno in alunos_filtrado:
+        aluno_dict = {}
+        for campo in campos:
+            valor = getattr(aluno, campo)
+            if campo == 'data_nasc':
+                valor = valor.isoformat() if valor else None
+            aluno_dict[campo] = valor
+        alunos_filtrado_dict.append(aluno_dict)
+
+    return alunos_filtrado_dict
 
 def remover_formatacao_cpf(cpf_formatado):
     # Remove caracteres que não são dígitos

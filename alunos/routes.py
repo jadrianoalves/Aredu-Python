@@ -8,7 +8,7 @@ from aluno_service import (
     excluir_aluno,
     buscar_alunos_por_nome,
     atualizar_parcialmente_aluno,
-    obter_alunos_resumidos
+    obter_filtrado
 )
 
 alunos_blueprint = Blueprint('alunos', __name__)
