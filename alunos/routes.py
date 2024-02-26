@@ -70,37 +70,23 @@ def delete_aluno(id):
     except Exception as e:
         return jsonify({"message": str(e)}), 500
 
-@alunos_blueprint.route('/alunos/search', methods=['GET'])
-def alunos_por_nome():
-    termo_busca = request.args.get('nome')
-    campos = request.args.getlist('campos')  # Receber campos via query
-    filtros = []
+@alunos_blueprint.route('/alunos/search', methods=['POST'])
+def buscar_alunos():
+    data = request.json  # Receber dados JSON do corpo da solicitação
+
+    campos = data.get('campos', [])
+    filtro = data.get('filtro', None)  # Mudança aqui para receber um único filtro
 
     try:
-        if termo_busca is None:
-            raise ValueError("O parâmetro 'nome' é obrigatório")
+        if filtro is not None and len(filtro) == 3:  # Verificar se o filtro está no formato correto
+            alunos_filtrados = obter_filtrado(campos=campos, filtro=filtro)
+        else:
+            alunos_filtrados = obter_filtrado(campos=campos)  # Chamada sem filtro
 
-        # Construir lista de filtros
-        for campo in request.args:
-            if campo.startswith('filtro_'):
-                campo_sem_prefixo = campo.replace('filtro_', '')
-                operador, valor = request.args.get(campo).split(':')
-                filtros.append((campo_sem_prefixo, operador, valor))
-
-        # Modificado para utilizar o método obter_filtrado da camada de serviço
-        alunos_encontrados = obter_filtrado(campos=campos, filtros=filtros)
-
-        # Serializar os alunos encontrados
-        alunos_serializados = []
-        for aluno in alunos_encontrados:
-            aluno_serializado = {}
-            for campo in campos:
-                aluno_serializado[campo] = aluno[campo]
-            alunos_serializados.append(aluno_serializado)
-
-        return jsonify(alunos_serializados)
-    except ValueError as e:
+        return jsonify(alunos_filtrados)
+    except Exception as e:
         return jsonify({"message": str(e)}), 400
+    
 
 @alunos_blueprint.route('/alunos/<id>', methods=['PATCH'])
 def partial_update_aluno(id):

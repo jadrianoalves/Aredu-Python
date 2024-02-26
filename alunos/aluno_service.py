@@ -48,47 +48,38 @@ def atualizar_parcialmente_aluno(aluno, data):
     db.session.commit()
     return aluno
 
-def obter_filtrado(campos=None, filtros=None):
+def obter_filtrado(campos=None, filtro=None):
     if campos is None:
-        campos = ['id', 'nome']
-    
-    # Verificar se os campos fornecidos são válidos
-    campos_validos = ['id', 'nome']
-    campos = [campo for campo in campos if campo in campos_validos]
+        campos = ['id', 'nome']  # Definindo campos padrão se não forem fornecidos
 
     # Construir a query dinamicamente com os campos selecionados
     query = db.session.query(*[getattr(Aluno, campo) for campo in campos])
 
-    # Aplicar filtros se forem fornecidos
-    if filtros:
-        for filtro in filtros:
-            campo, operador, valor = filtro
-            if campo in campos_validos:
-                campo_attr = getattr(Aluno, campo)
-                if operador == '==':
-                    query = query.filter(campo_attr == valor)
-                elif operador == '<':
-                    query = query.filter(campo_attr < valor)
-                elif operador == '>':
-                    query = query.filter(campo_attr > valor)
-                elif operador == 'like':
-                    query = query.filter(campo_attr.ilike(f'%{valor}%'))
-                # Adicione outros operadores conforme necessário
+    # Aplicar filtro se fornecido
+    if filtro:
+        campo, operador, valor = filtro
+        campo_attr = getattr(Aluno, campo)
+        if operador == '==':
+            query = query.filter(campo_attr == valor)
+        elif operador == 'like':
+            query = query.filter(campo_attr.ilike(f'%{valor}%'))
+        # Adicione outros operadores conforme necessário
 
-    alunos_filtrado = query.all()
+    # Executar a query
+    alunos_filtrados = query.all()
 
-    # Criar o dicionário com os dados dos alunos
-    alunos_filtrado_dict = []
-    for aluno in alunos_filtrado:
+    # Serializar os alunos encontrados
+    alunos_serializados = []
+    for aluno in alunos_filtrados:
         aluno_dict = {}
         for campo in campos:
             valor = getattr(aluno, campo)
-            if campo == 'data_nasc':
+            if isinstance(valor, datetime):
                 valor = valor.isoformat() if valor else None
             aluno_dict[campo] = valor
-        alunos_filtrado_dict.append(aluno_dict)
+        alunos_serializados.append(aluno_dict)
 
-    return alunos_filtrado_dict
+    return alunos_serializados
 
 def remover_formatacao_cpf(cpf_formatado):
     # Remove caracteres que não são dígitos
