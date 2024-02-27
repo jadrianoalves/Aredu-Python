@@ -49,37 +49,46 @@ def atualizar_parcialmente_aluno(aluno, data):
     return aluno
 
 def obter_filtrado(campos=None, filtro=None):
-    if campos is None:
-        campos = ['id', 'nome']  # Definindo campos padrão se não forem fornecidos
+    try:
+        if campos is None:
+            campos = ['id', 'nome']  # Definindo campos padrão se não forem fornecidos
 
-    # Construir a query dinamicamente com os campos selecionados
-    query = db.session.query(*[getattr(Aluno, campo) for campo in campos])
+        # Construir a query dinamicamente com os campos selecionados
+        query = db.session.query(*[getattr(Aluno, campo) for campo in campos])
 
-    # Aplicar filtro se fornecido
-    if filtro:
-        campo, operador, valor = filtro
-        campo_attr = getattr(Aluno, campo)
-        if operador == '==':
-            query = query.filter(campo_attr == valor)
-        elif operador == 'like':
-            query = query.filter(campo_attr.ilike(f'%{valor}%'))
-        # Adicione outros operadores conforme necessário
+        # Aplicar filtro se fornecido
+        if filtro:
+            campo, operador, valor = filtro
+            campo_attr = getattr(Aluno, campo)
+            if operador == '==':
+                query = query.filter(campo_attr == valor)
+            elif operador == 'like':
+                query = query.filter(campo_attr.ilike(f'%{valor}%'))
+            elif operador == '>':
+                query = query.filter(campo_attr > valor)
+            elif operador == '<':
+                query = query.filter(campo_attr < valor)
+            else:
+                raise ValueError(f"Operador '{operador}' não é suportado.")  # Lançar exceção para operador não suportado
 
-    # Executar a query
-    alunos_filtrados = query.all()
+        # Executar a query
+        alunos_filtrados = query.all()
 
-    # Serializar os alunos encontrados
-    alunos_serializados = []
-    for aluno in alunos_filtrados:
-        aluno_dict = {}
-        for campo in campos:
-            valor = getattr(aluno, campo)
-            if isinstance(valor, datetime):
-                valor = valor.isoformat() if valor else None
-            aluno_dict[campo] = valor
-        alunos_serializados.append(aluno_dict)
+        # Serializar os alunos encontrados
+        alunos_serializados = []
+        for aluno in alunos_filtrados:
+            aluno_dict = {}
+            for campo in campos:
+                valor = getattr(aluno, campo)
+                if isinstance(valor, datetime):
+                    valor = valor.isoformat() if valor else None
+                aluno_dict[campo] = valor
+            alunos_serializados.append(aluno_dict)
 
-    return alunos_serializados
+        return alunos_serializados
+
+    except Exception as e:
+        raise ValueError(f"Erro ao filtrar alunos: {str(e)}")  # Lançar exceção com a descrição do erro
 
 def remover_formatacao_cpf(cpf_formatado):
     # Remove caracteres que não são dígitos
